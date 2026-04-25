@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../features/calendar/data/datasources/app_database.dart';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -153,9 +154,17 @@ class SettingsCubit extends Cubit<SettingsState> {
     emit(state.copyWith(lastBackupDate: now));
   }
 
-  Future<void> clearAllData() async {
+  Future<void> clearAllData(AppDatabase db) async {
+    // Clear Drift database tables
+    await db.delete(db.hitchesTable).go();
+    await db.delete(db.payPeriodsTable).go();
+    await db.delete(db.familyEventsTable).go();
+    await db.delete(db.workersTable).go();
+
+    // Clear SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
+
     emit(const SettingsState());
   }
 }
