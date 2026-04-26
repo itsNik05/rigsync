@@ -6,6 +6,8 @@ import 'package:uuid/uuid.dart';
 
 import '../../domain/entities/family_event.dart';
 import '../../domain/entities/household.dart';
+import 'package:dartz/dartz.dart';
+import '../../../../core/utils/failures.dart';
 import '../../domain/repositories/i_family_repository.dart';
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -84,6 +86,7 @@ class FamilyCubit extends Cubit<FamilyState> {
   StreamSubscription? _householdSub;
   StreamSubscription? _eventsSub;
   static const _uuid = Uuid();
+  String? _pendingHouseholdId;
 
   Future<void> initialize() async {
     emit(state.copyWith(status: FamilyStatus.loading));
@@ -125,6 +128,15 @@ class FamilyCubit extends Cubit<FamilyState> {
         }
       },
     );
+  }
+
+  /// Called from main.dart after hitches are loaded to sync them
+  Future<void> syncExistingHitches(List<Map<String, dynamic>> hitchMaps) async {
+    final householdId = state.household?.id ?? _pendingHouseholdId;
+    if (householdId == null) return;
+    if (!state.isOwner) return;
+    await _repository.syncHitchesToCloud(householdId, hitchMaps);
+    _pendingHouseholdId = null;
   }
 
   Future<void> signInWithGoogle() async {
@@ -181,6 +193,8 @@ class FamilyCubit extends Cubit<FamilyState> {
           household: household,
           isOwner: true,
         ));
+        // Trigger hitch sync after household creation
+        _pendingHouseholdId = household.id;
       },
     );
   }
@@ -261,4 +275,15 @@ class FamilyCubit extends Cubit<FamilyState> {
     _eventsSub?.cancel();
     return super.close();
   }
+
+  Future<void> syncHitches(List<Map<String, dynamic>> hitches) async {
+    if (state.household == null) return;
+    await _repository.syncHitchesToCloud(state.household!.id, hitches);
+  }
+
+  Stream<Either<Failure, List<Map<String, dynamic>>>> watchHitches(
+      String householdId) {
+    return _repository.watchHitches(householdId);
+  }
+
 }

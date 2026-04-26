@@ -128,7 +128,11 @@ class FinanceCubit extends Cubit<FinanceState> {
     required double dailyRate,
     String? rigName,
   }) async {
-    if (_currentWorkerId == null) return;
+    // If no worker loaded yet, get it from the first available worker
+    if (_currentWorkerId == null) {
+      emit(state.copyWith(errorMessage: 'No worker selected. Please select a worker first.'));
+      return;
+    }
 
     final days = end.difference(start).inDays + 1;
     final period = PayPeriod(
