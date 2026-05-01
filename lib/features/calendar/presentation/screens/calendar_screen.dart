@@ -10,7 +10,6 @@ import '../cubits/worker_cubit.dart';
 import '../widgets/add_hitch_sheet.dart';
 import '../widgets/add_worker_sheet.dart';
 import '../widgets/workers_bar.dart';
-import '../widgets/hitch_day_marker.dart';
 import '../widgets/hitch_detail_sheet.dart';
 import '../widgets/countdown_card.dart';
 import '../../../../features/settings/presentation/cubits/purchase_cubit.dart';
@@ -25,14 +24,22 @@ class CalendarScreen extends StatelessWidget {
   }
 }
 
-class _CalendarView extends StatelessWidget {
+// ── Convert to StatefulWidget to track calendar format ────────────────────────
+
+class _CalendarView extends StatefulWidget {
   const _CalendarView();
+
+  @override
+  State<_CalendarView> createState() => _CalendarViewState();
+}
+
+class _CalendarViewState extends State<_CalendarView> {
+  CalendarFormat _calendarFormat = CalendarFormat.month;
 
   void _openAddWorker(BuildContext context) {
     final isPro = context.read<PurchaseCubit>().state.isPro;
     final workerCount = context.read<WorkerCubit>().state.workers.length;
 
-    // Free users limited to 1 worker
     if (!isPro && workerCount >= 1) {
       PaywallScreen.show(context, featureName: 'Multiple workers');
       return;
@@ -51,7 +58,11 @@ class _CalendarView extends StatelessWidget {
   }
 
   void _openAddHitch(BuildContext context, String? workerId) {
-    if (workerId == null) {
+    // Resolve worker ID from state if not passed
+    final resolvedId =
+        workerId ?? context.read<WorkerCubit>().state.selectedWorker?.id;
+
+    if (resolvedId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Add a worker first before scheduling a hitch'),
@@ -59,6 +70,7 @@ class _CalendarView extends StatelessWidget {
       );
       return;
     }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -66,7 +78,7 @@ class _CalendarView extends StatelessWidget {
       backgroundColor: Colors.transparent,
       builder: (_) => BlocProvider.value(
         value: context.read<CalendarCubit>(),
-        child: AddHitchSheet(workerId: workerId),
+        child: AddHitchSheet(workerId: resolvedId),
       ),
     );
   }
@@ -90,7 +102,6 @@ class _CalendarView extends StatelessWidget {
         ],
       ),
       body: BlocListener<WorkerCubit, WorkerState>(
-        // When selected worker changes, reload their hitches
         listenWhen: (prev, curr) =>
         prev.selectedWorkerId != curr.selectedWorkerId,
         listener: (context, state) {
@@ -123,7 +134,13 @@ class _CalendarView extends StatelessWidget {
                   return Column(
                     children: [
                       // Countdown card
-                      CountdownCard(hitches: state.hitches),
+                      CountdownCard(
+                        hitches: state.hitches,
+                        onAddHitch: () => _openAddHitch(
+                          context,
+                          context.read<WorkerCubit>().state.selectedWorker?.id,
+                        ),
+                      ),
 
                       // Error banner
                       if (state.errorMessage != null)
@@ -158,11 +175,17 @@ class _CalendarView extends StatelessWidget {
                               isSameDay(day, state.selectedDay),
                           eventLoader: (day) =>
                               state.hitchesForDay(day),
-                          calendarFormat: CalendarFormat.month,
+
+                          // ── Fix 1: wire format to state ───────────────
+                          calendarFormat: _calendarFormat,
                           availableCalendarFormats: const {
                             CalendarFormat.month: 'Month',
                             CalendarFormat.week: 'Week',
                           },
+                          onFormatChanged: (format) {
+                            setState(() => _calendarFormat = format);
+                          },
+
                           onDaySelected: (selected, focused) =>
                               context
                                   .read<CalendarCubit>()
@@ -267,11 +290,19 @@ class _HitchDayCell extends StatelessWidget {
 
   Color _hitchColor() {
     if (hitch == null) return Colors.transparent;
-    if (hitch!.colorHex != null) {
-      return Color(
-        int.parse('FF${hitch!.colorHex!.replaceAll('#', '')}', radix: 16),
-      ).withOpacity(hitch!.isOnShift ? 0.35 : 0.18);
+
+    // ── Fix 3: use colorHex when available ──────────────────────────────
+    if (hitch!.colorHex != null && hitch!.colorHex!.isNotEmpty) {
+      final baseColor = Color(
+        int.parse(
+            'FF${hitch!.colorHex!.replaceAll('#', '')}',
+            radix: 16),
+      );
+      // Use same color for both on/off but different opacity
+      return baseColor.withOpacity(hitch!.isOnShift ? 0.45 : 0.20);
     }
+
+    // Fallback to default green/red only if no color set
     return switch (hitch!.type) {
       HitchType.on => AppTheme.hitchOn.withOpacity(0.35),
       HitchType.off => AppTheme.hitchOff.withOpacity(0.18),
@@ -293,7 +324,8 @@ class _HitchDayCell extends StatelessWidget {
             ? Border.all(color: theme.colorScheme.primary, width: 2)
             : isToday
             ? Border.all(
-          color: theme.colorScheme.primary.withOpacity(0.5),
+          color:
+          theme.colorScheme.primary.withOpacity(0.5),
           width: 1.5,
         )
             : null,
@@ -302,8 +334,9 @@ class _HitchDayCell extends StatelessWidget {
         child: Text(
           '${day.day}',
           style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight:
-            isToday || isSelected ? FontWeight.w700 : FontWeight.w400,
+            fontWeight: isToday || isSelected
+                ? FontWeight.w700
+                : FontWeight.w400,
             color: isSelected
                 ? theme.colorScheme.primary
                 : theme.colorScheme.onSurface,

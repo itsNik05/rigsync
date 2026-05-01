@@ -45,6 +45,7 @@ abstract class ICalendarRepository {
     required int daysOff,
     required int months,
     String? rigName,
+    String? colorHex,
   });
 
   // ── Sync ───────────────────────────────────────────────────────────────────

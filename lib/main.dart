@@ -21,6 +21,7 @@ import 'features/settings/presentation/cubits/purchase_cubit.dart';
 import 'features/settings/presentation/cubits/settings_cubit.dart';
 import 'firebase_options.dart';
 import 'features/calendar/domain/entities/hitch.dart';
+import 'features/calendar/data/datasources/app_database.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -133,23 +134,7 @@ class _AppRoot extends StatelessWidget {
         // Sync hitches to Firestore for family sharing
         final familyState = context.read<FamilyCubit>().state;
         if (familyState.hasHousehold && familyState.isOwner) {
-          final hitchMaps = calendarState.hitches
-              .map((h) => {
-            'id': h.id,
-            'workerId': h.workerId,
-            'startDate': h.startDate.toIso8601String(),
-            'endDate': h.endDate.toIso8601String(),
-            'type': h.type == HitchType.on
-                ? 'on'
-                : h.type == HitchType.off
-                ? 'off'
-                : 'transit',
-            'rigName': h.rigName,
-            'colorHex': h.colorHex,
-            'notes': h.notes,
-          })
-              .toList();
-          context.read<FamilyCubit>().syncHitches(hitchMaps);
+          _syncAllWorkers(context);
         }
       },
       child: BlocListener<SettingsCubit, SettingsState>(
@@ -182,5 +167,37 @@ class _AppRoot extends StatelessWidget {
       ),
     )
     );
+  }
+
+  Future<void> _syncAllWorkers(BuildContext context) async {
+    final familyState = context.read<FamilyCubit>().state;
+    if (!familyState.hasHousehold || !familyState.isOwner) return;
+
+    final workers = context.read<WorkerCubit>().state.workers;
+    final db = getIt<AppDatabase>();
+    final now = DateTime.now();
+    final allHitchMaps = <Map<String, dynamic>>[];
+
+    for (final worker in workers) {
+      final hitches = await db.getHitchesForWorker(
+        workerId: worker.id,
+        from: DateTime(now.year - 1),
+        to: DateTime(now.year + 3),
+      );
+      allHitchMaps.addAll(hitches.map((h) => {
+        'id': h.id,
+        'workerId': h.workerId,
+        'workerName': worker.name,
+        'workerColor': worker.colorHex,
+        'startDate': h.startDate.toIso8601String(),
+        'endDate': h.endDate.toIso8601String(),
+        'type': h.type,
+        'rigName': h.rigName,
+        'colorHex': h.colorHex ?? worker.colorHex,
+        'notes': h.notes,
+      }));
+    }
+
+    await context.read<FamilyCubit>().syncExistingHitches(allHitchMaps);
   }
 }

@@ -32,6 +32,7 @@ class PaywallScreen extends StatelessWidget {
         const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 40),
+        child: SingleChildScrollView(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -183,6 +184,7 @@ class PaywallScreen extends StatelessWidget {
           ),
         ],
       ),
+        ),
     );
   }
 }

@@ -158,4 +158,14 @@ class CalendarCubit extends Cubit<CalendarState> {
       )),
     );
   }
+
+  void clearHitches() {
+    emit(state.copyWith(
+      hitches: [],
+      selectedDay: null,
+      errorMessage: null,
+      status: CalendarStatus.loaded,
+    ));
+  }
+
 }

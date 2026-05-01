@@ -8,6 +8,9 @@ import '../../domain/entities/household.dart';
 import 'dart:async';
 import '../../../calendar/presentation/cubits/calendar_cubit.dart';
 import '../../../calendar/domain/entities/hitch.dart';
+import '../../../../core/di/injection.dart';
+import '../../../calendar/data/datasources/app_database.dart';
+import '../../../calendar/presentation/cubits/worker_cubit.dart';
 
 class FamilyScreen extends StatelessWidget {
   const FamilyScreen({super.key});
@@ -305,23 +308,33 @@ class _HouseholdView extends StatelessWidget {
                     duration: Duration(seconds: 1),
                   ),
                 );
-                final hitches =
-                    context.read<CalendarCubit>().state.hitches;
-                final hitchMaps = hitches
-                    .map((h) => {
-                  'id': h.id,
-                  'workerId': h.workerId,
-                  'startDate': h.startDate.toIso8601String(),
-                  'endDate': h.endDate.toIso8601String(),
-                  'type': h.type.name,
-                  'rigName': h.rigName,
-                  'colorHex': h.colorHex,
-                  'notes': h.notes,
-                })
-                    .toList();
+                final workers = context.read<WorkerCubit>().state.workers;
+                final db = getIt<AppDatabase>();
+                final now = DateTime.now();
+                final allHitchMaps = <Map<String, dynamic>>[];
+
+                for (final worker in workers) {
+                  final hitches = await db.getHitchesForWorker(
+                    workerId: worker.id,
+                    from: DateTime(now.year - 1),
+                    to: DateTime(now.year + 3),
+                  );
+                  allHitchMaps.addAll(hitches.map((h) => {
+                    'id': h.id,
+                    'workerId': h.workerId,
+                    'workerName': worker.name,
+                    'workerColor': worker.colorHex,
+                    'startDate': h.startDate.toIso8601String(),
+                    'endDate': h.endDate.toIso8601String(),
+                    'type': h.type,
+                    'rigName': h.rigName,
+                    'colorHex': h.colorHex ?? worker.colorHex,
+                    'notes': h.notes,
+                  }));
+                }
                 await context
                     .read<FamilyCubit>()
-                    .syncExistingHitches(hitchMaps);
+                    .syncExistingHitches(allHitchMaps);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -1055,8 +1068,11 @@ class _SharedScheduleState extends State<_SharedSchedule> {
             final end = DateTime.parse(h['endDate'] as String);
             final type = h['type'] as String;
             final isOn = type == 'on';
-            final color =
-            isOn ? const Color(0xFF2E7D32) : const Color(0xFFC62828);
+            final workerColorHex = h['workerColor'] as String? ??
+                (isOn ? '#2E7D32' : '#C62828');
+            final color = Color(
+                int.parse('FF${workerColorHex.replaceAll('#', '')}',
+                    radix: 16));
             final daysUntil = start.difference(today).inDays;
             const months = [
               'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -1082,9 +1098,9 @@ class _SharedScheduleState extends State<_SharedSchedule> {
                 title: Text(
                   isOn
                       ? (h['rigName'] != null
-                      ? 'On hitch — ${h['rigName']}'
-                      : 'On hitch')
-                      : 'Off hitch',
+                      ? '${h['workerName'] ?? 'Worker'} — ${h['rigName']}'
+                      : '${h['workerName'] ?? 'Worker'} on hitch')
+                      : '${h['workerName'] ?? 'Worker'} off hitch',
                   style: theme.textTheme.bodyMedium
                       ?.copyWith(fontWeight: FontWeight.w500),
                 ),

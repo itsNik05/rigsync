@@ -177,8 +177,13 @@ class _HitchTile extends StatelessWidget {
 // ── CountdownCard ─────────────────────────────────────────────────────────────
 
 class CountdownCard extends StatelessWidget {
-  const CountdownCard({super.key, required this.hitches});
+  const CountdownCard({
+    super.key,
+    required this.hitches,
+    this.onAddHitch,
+  });
   final List<Hitch> hitches;
+  final VoidCallback? onAddHitch;
 
   @override
   Widget build(BuildContext context) {
@@ -210,22 +215,36 @@ class CountdownCard extends StatelessWidget {
       }
 
       if (next == null) {
-        return Container(
-          margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-          padding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.add_circle_outline,
-                  color: theme.colorScheme.primary),
-              const SizedBox(width: 12),
-              Text('Tap + to add your hitch schedule',
-                  style: theme.textTheme.bodyMedium),
-            ],
+        return GestureDetector(
+          onTap: onAddHitch,
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: theme.colorScheme.primary.withOpacity(0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.add_circle_outline,
+                    color: theme.colorScheme.primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Tap here to add your hitch schedule',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
+                Icon(Icons.chevron_right,
+                    color: theme.colorScheme.primary),
+              ],
+            ),
           ),
         );
       }

@@ -112,6 +112,7 @@ class GeneratePatternParams extends Equatable {
     required this.daysOff,
     this.months = 12,
     this.rigName,
+    this.colorHex,
   });
 
   final String workerId;
@@ -120,8 +121,9 @@ class GeneratePatternParams extends Equatable {
   final int daysOff;
   final int months;
   final String? rigName;
+  final String? colorHex;
 
   @override
   List<Object?> get props =>
-      [workerId, startDate, daysOn, daysOff, months, rigName];
+      [workerId, startDate, daysOn, daysOff, months, rigName, colorHex];
 }

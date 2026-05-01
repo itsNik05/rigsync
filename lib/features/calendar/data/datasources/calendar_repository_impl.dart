@@ -167,6 +167,7 @@ class CalendarRepositoryImpl implements ICalendarRepository {
     required int daysOff,
     required int months,
     String? rigName,
+    String? colorHex,
   }) async {
     try {
       final periods = HitchDateUtils.generatePattern(
@@ -184,6 +185,7 @@ class CalendarRepositoryImpl implements ICalendarRepository {
         endDate: p.end,
         type: p.isOnShift ? HitchType.on : HitchType.off,
         rigName: p.isOnShift ? rigName : null,
+        colorHex: colorHex,
       ))
           .toList();
 
